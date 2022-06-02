@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const splitFileStream = require("split-file-stream");
 const algorithm = 'aes-256-ctr';
+path = require('path');
 //
 
 module.exports = {
@@ -66,29 +67,39 @@ module.exports = {
         } catch (err) {
             console.error(err);
         }
-        outputPath = outputPath + "/part"; // nombra el prefijo de las partes
+        let PathParts = outputPath + "/part"; // nombra el prefijo de las partes
+        file2split = fs.readFileSync(imagenPath);
+        let len = file2split.length;
+        let numPart = Math.ceil(len / maxFileSize);
+        await splitAwait(len);
 
-        let responsePromise = [];
-
-        async function splitAwait() {
+        async function splitAwait(len) {
             console.log("Beginning splitting files....... ")
-            var customSplit = splitFileStream.getSplitWithGenFilePath((n) => `${outputPath}-${(n + 1)}`);
-            let rstream = fs.createReadStream(imagenPath);
-            rstream.on('open', (fd) => {
-                customSplit(rstream, maxFileSize, (error, filePaths) => {
-                    if (error) throw error;
-                    console.log("The split parts are in", filePaths);
-                })
-                console.log("Finished spliting files....... ");
+            var customSplit = splitFileStream.getSplitWithGenFilePath((n) => `${PathParts}-${(n + 1)}`);
+            customSplit(fs.createReadStream(imagenPath), maxFileSize, (error, filePaths) => {
+                if (error) throw error;
+                console.log("The split parts are in", filePaths);
                 // let response = await Promise.all(responsePromise);
             });
-            rstream.on('error', (err) => {
-                console.error(err);
-            });
+            
+            fs.existsSync(outputPath)
+            fileCountSplit = fs.readdirSync(outputPath);
+            while (fileCountSplit.length < numPart) {
+                await sleep(1);
+                fileCountSplit = fs.readdirSync(outputPath);
+            }
+            let fullPath, totalSize = 0;
+            while (totalSize < len) {
+                fileCountSplit.forEach(file => {
+                    fullPath = path.join(outputPath, file);
+                    size = fs.statSync(fullPath).size; // Get size of file
+                    totalSize += size; // Calculate total size
+                });
+                await sleep(1);
+            }
+         
         }
-        await splitAwait();
-
-
+        console.log("Finished spliting files....... ");
 
     },
     //////////////////////////////////////////////////////////////////////
@@ -97,32 +108,30 @@ module.exports = {
     join: async function (inputPath, outputPath) {
         console.log("Merging files.............")
         let filePaths = fs.readdirSync(inputPath);
-        var fullPathPart = [];        
-        var temp=[];
-        let fullSize=0;        
+        var fullPathPart = [];
+        var temp = [];
+        let fullSize = 0;
         for (let x = 0; x < filePaths.length; x++) {
             fullPathPart.push(inputPath + '/' + filePaths[x])
-            temp = fs.readFileSync(fullPathPart[x]);            
-            fullSize+=temp.length;            
+            temp = fs.readFileSync(fullPathPart[x]);
+            fullSize += temp.length;
         }
-        outputPath = outputPath + "joinFile.dcm";
-        await merge();
+        let pathSplit = outputPath + "joinFile.dcm";
+       await merge();
 
         async function merge() {
-            splitFileStream.mergeFilesToDisk(fullPathPart, outputPath, () => { });
-            await sleep(1);
-            fileMerge = fs.readFileSync(outputPath);
+            splitFileStream.mergeFilesToDisk(fullPathPart, pathSplit, () => { });
+
+            
+            while (!fs.existsSync(pathSplit)) {
+                await sleep(1);                
+            }
+            fileMerge = fs.readFileSync(pathSplit);
             while (fileMerge.length < fullSize) {
-                fileMerge = fs.readFileSync(outputPath);
+                fileMerge = fs.readFileSync(pathSplit);
                 await sleep(1);
             }
             console.log("Finished merging files........")
-        }
-
-        function sleep(ms) {
-            return new Promise(resolve => {
-                setTimeout(resolve, ms)
-            })
         }
     },
     //////////////////////////////////////////////////////////////////////
@@ -163,6 +172,13 @@ module.exports = {
     }
 
 };
+
+
+function sleep(ms) {
+    return new Promise(resolve => {
+        setTimeout(resolve, ms)
+    })
+}
 
 // Hay dos tipos de nstrucciones=> 
 // 1) Instruccion instantanea-> Son sincronas (suma, mover valores de variables, operaciones, manejo de objetos...)

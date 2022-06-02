@@ -1,9 +1,10 @@
-const md = require('./fullBigFileModule');
-imagePath='/home/jonathan/Documents/ExpClin BlockChain/semana10/JScode/test1.dcm';
-let outfilePath=md.encriptar(imagePath,'/home/jonathan/Documents/ExpClin BlockChain/semana10/JScode/fileEncrypt')
-// md.split(outfilePath,2,'/home/jonathan/Documents/ExpClin BlockChain/semana10/JScode/particiones');
-// md.join('/home/jonathan/Documents/ExpClin BlockChain/semana10/JScode/particiones','/home/jonathan/Documents/ExpClin BlockChain/semana10/JScode');
-// md.desencriptar('outputFile.dcm','fileEncrypt/secretKey.key','fileEncrypt/vectInit','./');
-
-
+const md = require('./moduleEncryptSplit');
+imagePath = 'test3.dcm';
+async function main(){
+    let outfilePath = md.encriptar(imagePath, './fileEncrypt')
+    await md.split(outfilePath, 1, './particiones');
+    await md.join('./particiones', './');
+    await md.desencriptar('joinFile.dcm', 'fileEncrypt/secretKey.key', 'fileEncrypt/vectInit', './');
+}
+main();
 
